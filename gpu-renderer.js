@@ -18,6 +18,8 @@
     uniform float u_sharpness;
     uniform float u_definition;
     uniform float u_glowThreshold;
+    uniform float u_glowAmount;
+    uniform float u_glowSize;
     uniform float u_invert;
     uniform float u_colored;
     uniform float u_scatter;
@@ -37,6 +39,14 @@
       return dot(adjustedColor(texture(u_video, clamp(uv, 0.0, 1.0)).rgb), vec3(0.2126, 0.7152, 0.0722));
     }
 
+    float glyphCoverageAt(float glyphIndex, vec2 local) {
+      vec2 glyphUv = vec2(
+        (glyphIndex + clamp(local.x, 0.0, 1.0)) / u_charCount,
+        clamp(local.y, 0.0, 1.0)
+      );
+      return texture(u_glyphs, glyphUv).a;
+    }
+
     void main() {
       vec2 cellSize = u_outputSize / u_grid;
       vec2 cell = floor(gl_FragCoord.xy / cellSize);
@@ -45,13 +55,21 @@
       vec2 videoUv = vec2((cell.x + 0.5) / u_grid.x, 1.0 - (rowFromTop + 0.5) / u_grid.y);
       vec2 texel = 1.0 / u_grid;
       float center = luminanceAt(videoUv);
-      float neighbors = (
-        luminanceAt(videoUv + vec2(-texel.x, 0.0)) +
-        luminanceAt(videoUv + vec2(texel.x, 0.0)) +
-        luminanceAt(videoUv + vec2(0.0, -texel.y)) +
-        luminanceAt(videoUv + vec2(0.0, texel.y))
-      ) * 0.25;
-      float brightness = clamp(center + (center - neighbors) * (u_sharpness + u_definition * 0.35), 0.0, 1.0);
+      float left = luminanceAt(videoUv + vec2(-texel.x, 0.0));
+      float right = luminanceAt(videoUv + vec2(texel.x, 0.0));
+      float above = luminanceAt(videoUv + vec2(0.0, -texel.y));
+      float below = luminanceAt(videoUv + vec2(0.0, texel.y));
+      float neighbors = (left + right + above + below) * 0.25;
+      float localMinimum = min(center, min(min(left, right), min(above, below)));
+      float localMaximum = max(center, max(max(left, right), max(above, below)));
+      float localRange = localMaximum - localMinimum;
+      float localDetail = localRange > 0.025 ? (center - localMinimum) / localRange : center;
+      float edge = center - neighbors;
+      float brightness = clamp(
+        center + edge * u_sharpness * 2.5 + (localDetail - center) * u_definition * 0.65,
+        0.0,
+        1.0
+      );
       brightness = mix(brightness, 1.0 - brightness, u_invert);
       float glyphIndex = min(u_charCount - 1.0, floor(brightness * u_charCount));
       float glow = smoothstep(u_glowThreshold, 1.0, center);
@@ -65,11 +83,27 @@
 
       vec2 glyphUv = vec2((glyphIndex + local.x) / u_charCount, local.y);
       float coverage = texture(u_glyphs, glyphUv).a;
+      float blurredCoverage = 0.0;
+      float blurWeight = 0.0;
+      float blurRadius = u_glowSize * 0.14;
+      float blurSigma = max(blurRadius * 0.65, 0.001);
+      for (int blurY = -1; blurY <= 1; blurY++) {
+        for (int blurX = -1; blurX <= 1; blurX++) {
+          vec2 offset = vec2(float(blurX), float(blurY)) * blurRadius;
+          float weight = exp(-dot(offset, offset) / (2.0 * blurSigma * blurSigma));
+          blurredCoverage += glyphCoverageAt(glyphIndex, local + offset) * weight;
+          blurWeight += weight;
+        }
+      }
+      blurredCoverage /= blurWeight;
       vec3 sampledColor = adjustedColor(texture(u_video, videoUv).rgb);
       vec3 foreground = mix(u_textColor, sampledColor, u_colored);
       foreground = mix(foreground, vec3(1.0), glow * 0.7);
-      float haloCoverage = max(coverage, (1.0 - coverage) * glow * 0.22);
-      outColor = vec4(mix(u_backgroundColor, foreground, haloCoverage), 1.0);
+      float glowCoverage = clamp(blurredCoverage - coverage, 0.0, 1.0) * glow * u_glowAmount * 2.4;
+      vec3 glowColor = mix(foreground, vec3(1.0), 0.45);
+      vec3 pixelColor = mix(u_backgroundColor, glowColor, glowCoverage);
+      pixelColor = mix(pixelColor, foreground, coverage);
+      outColor = vec4(pixelColor, 1.0);
     }
   `;
 
@@ -158,6 +192,8 @@
       "u_sharpness",
       "u_definition",
       "u_glowThreshold",
+      "u_glowAmount",
+      "u_glowSize",
       "u_invert",
       "u_colored",
       "u_scatter",
@@ -175,10 +211,11 @@
     function uploadGlyphAtlas(characters) {
       if (characters === atlasCharacters) return;
       const ramp = [...(characters || " ")].slice(0, 256).join("") || " ";
-      const tileSize = 32;
+      const tileWidth = 18;
+      const tileHeight = 32;
       const atlas = document.createElement("canvas");
-      atlas.width = tileSize * ramp.length;
-      atlas.height = tileSize;
+      atlas.width = tileWidth * ramp.length;
+      atlas.height = tileHeight;
       const context = atlas.getContext("2d");
       context.clearRect(0, 0, atlas.width, atlas.height);
       context.fillStyle = "#fff";
@@ -188,8 +225,8 @@
       for (let index = 0; index < ramp.length; index += 1) {
         context.fillText(
           ramp[index],
-          index * tileSize + tileSize / 2,
-          tileSize / 2,
+          index * tileWidth + tileWidth / 2,
+          tileHeight / 2,
         );
       }
       gl.activeTexture(gl.TEXTURE1);
@@ -216,6 +253,8 @@
         characters,
         settings,
         glowThreshold,
+        glowAmount,
+        glowSize,
         scattering,
         scatterStrength,
         now,
@@ -276,6 +315,8 @@
         Math.max(0, Math.min(100, Number(settings.definition) || 0)) / 100,
       );
       gl.uniform1f(uniforms.u_glowThreshold, glowThreshold);
+      gl.uniform1f(uniforms.u_glowAmount, glowAmount);
+      gl.uniform1f(uniforms.u_glowSize, glowSize);
       gl.uniform1f(uniforms.u_invert, settings.invert ? 1 : 0);
       gl.uniform1f(uniforms.u_colored, settings.preset === "colored" ? 1 : 0);
       gl.uniform1f(uniforms.u_scatter, scattering ? scatterStrength : 0);

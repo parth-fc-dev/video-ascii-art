@@ -6,10 +6,12 @@
     preset: "classic",
     characters:
       "$@B%8&WM#QDOHEFRAKPGSNTV*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()123456789{}[]?-=+~<>i!lI;:,^_`' .",
-    resolution: 570,
+    resolution: 300,
     frameRate: 60,
     fontSize: 12,
     glowThreshold: 81,
+    glowAmount: 100,
+    glowSize: 45,
     contrast: 95,
     sharpness: 45,
     definition: 45,
@@ -192,7 +194,7 @@
     try {
       const requestedColumns = Math.max(
         20,
-        Math.min(600, Number(settings.resolution) || 240),
+        Math.min(600, Number(settings.resolution) || 300),
       );
       const fontSize = Math.max(
         6,
@@ -234,6 +236,11 @@
                 50,
                 Math.min(100, Number(settings.glowThreshold) || 85),
               ) / 100,
+            glowAmount:
+              Math.max(0, Math.min(200, Number(settings.glowAmount) ?? 100)) /
+              100,
+            glowSize:
+              Math.max(0, Math.min(100, Number(settings.glowSize) ?? 45)) / 100,
             scattering: now < scatterUntil,
             scatterStrength:
               now < scatterUntil ? (scatterUntil - now) / 550 : 0,
@@ -334,6 +341,8 @@
       }
       outputContext.font = `${fontSize}px monospace`;
       outputContext.textBaseline = "top";
+      const glyphWidth = outputContext.measureText("M").width;
+      const horizontalScale = cellWidth / glyphWidth;
 
       const scattering = now < scatterUntil;
       const scatterStrength = scattering ? (scatterUntil - now) / 550 : 0;
@@ -352,9 +361,19 @@
           const below =
             luminance[Math.min(rows - 1, row + 1) * columns + column];
           const edge = center - (left + right + above + below) * 0.25;
+          const localMinimum = Math.min(center, left, right, above, below);
+          const localMaximum = Math.max(center, left, right, above, below);
+          const localRange = localMaximum - localMinimum;
+          const localDetail =
+            localRange > 0.025 ? (center - localMinimum) / localRange : center;
           let brightness = Math.max(
             0,
-            Math.min(1, center + edge * (sharpness + definition * 0.35)),
+            Math.min(
+              1,
+              center +
+                edge * sharpness * 2.5 +
+                (localDetail - center) * definition * 0.65,
+            ),
           );
           if (settings.invert) brightness = 1 - brightness;
           const threshold =
@@ -387,7 +406,13 @@
                 ? "#ffffff"
                 : settings.textColor
               : baseColor;
-          const cellKey = `${character ?? " "}\0${color}`;
+          const amount =
+            Math.max(0, Math.min(200, Number(settings.glowAmount) ?? 100)) /
+            100;
+          const glowSize =
+            Math.max(0, Math.min(100, Number(settings.glowSize) ?? 45)) / 100;
+          const glowStrength = glowAmount * amount;
+          const cellKey = `${character ?? " "}\0${color}\0${glowStrength.toFixed(3)}\0${glowSize.toFixed(3)}`;
           if (!scattering && renderedCells[pixelIndex] === cellKey) continue;
 
           const x = column * cellWidth;
@@ -401,17 +426,25 @@
             ? (Math.random() - 0.5) * 12 * scatterStrength
             : 0;
           if (character && character !== " ") {
-            if (glowAmount > 0.05) {
-              outputContext.shadowColor = color;
-              outputContext.shadowBlur = glowAmount * fontSize * 1.5;
+            if (glowStrength > 0.05 && glowSize > 0) {
+              const rgba = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+              const hex = color.match(
+                /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i,
+              );
+              const components = rgba
+                ? rgba.slice(1).map(Number)
+                : hex
+                  ? hex.slice(1).map((part) => parseInt(part, 16))
+                  : [255, 255, 255];
+              outputContext.shadowColor = `rgba(${components.join(",")},${Math.min(1, glowStrength)})`;
+              outputContext.shadowBlur = glowStrength * glowSize * fontSize * 5;
             }
             outputContext.fillStyle = color;
-            outputContext.fillText(
-              character,
-              x + scatterX,
-              y + scatterY,
-              cellWidth,
-            );
+            outputContext.save();
+            outputContext.translate(x + scatterX, y + scatterY);
+            outputContext.scale(horizontalScale, 1);
+            outputContext.fillText(character, 0, 0);
+            outputContext.restore();
             outputContext.shadowBlur = 0;
             outputContext.shadowColor = "transparent";
           }
