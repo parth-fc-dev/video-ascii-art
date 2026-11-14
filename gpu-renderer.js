@@ -17,6 +17,7 @@
     uniform float u_saturation;
     uniform float u_sharpness;
     uniform float u_definition;
+    uniform float u_glowThreshold;
     uniform float u_invert;
     uniform float u_colored;
     uniform float u_scatter;
@@ -53,6 +54,8 @@
       float brightness = clamp(center + (center - neighbors) * (u_sharpness + u_definition * 0.35), 0.0, 1.0);
       brightness = mix(brightness, 1.0 - brightness, u_invert);
       float glyphIndex = min(u_charCount - 1.0, floor(brightness * u_charCount));
+      float glow = smoothstep(u_glowThreshold, 1.0, center);
+      glyphIndex = min(glyphIndex, floor((1.0 - glow * 0.7) * (u_charCount - 1.0)));
 
       if (u_scatter > 0.0) {
         float seed = sin(dot(cell + vec2(u_time), vec2(12.9898, 78.233))) * 43758.5453;
@@ -64,7 +67,9 @@
       float coverage = texture(u_glyphs, glyphUv).a;
       vec3 sampledColor = adjustedColor(texture(u_video, videoUv).rgb);
       vec3 foreground = mix(u_textColor, sampledColor, u_colored);
-      outColor = vec4(mix(u_backgroundColor, foreground, coverage), 1.0);
+      foreground = mix(foreground, vec3(1.0), glow * 0.7);
+      float haloCoverage = max(coverage, (1.0 - coverage) * glow * 0.22);
+      outColor = vec4(mix(u_backgroundColor, foreground, haloCoverage), 1.0);
     }
   `;
 
@@ -152,6 +157,7 @@
       "u_saturation",
       "u_sharpness",
       "u_definition",
+      "u_glowThreshold",
       "u_invert",
       "u_colored",
       "u_scatter",
@@ -209,6 +215,7 @@
         rows,
         characters,
         settings,
+        glowThreshold,
         scattering,
         scatterStrength,
         now,
@@ -268,6 +275,7 @@
         uniforms.u_definition,
         Math.max(0, Math.min(100, Number(settings.definition) || 0)) / 100,
       );
+      gl.uniform1f(uniforms.u_glowThreshold, glowThreshold);
       gl.uniform1f(uniforms.u_invert, settings.invert ? 1 : 0);
       gl.uniform1f(uniforms.u_colored, settings.preset === "colored" ? 1 : 0);
       gl.uniform1f(uniforms.u_scatter, scattering ? scatterStrength : 0);

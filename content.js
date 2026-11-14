@@ -6,13 +6,14 @@
     preset: "classic",
     characters:
       "$@B%8&WM#QDOHEFRAKPGSNTV*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()123456789{}[]?-=+~<>i!lI;:,^_`' .",
-    resolution: 240,
+    resolution: 570,
     frameRate: 60,
-    fontSize: 9,
-    contrast: 100,
-    sharpness: 25,
-    definition: 20,
-    saturation: 100,
+    fontSize: 12,
+    glowThreshold: 81,
+    contrast: 95,
+    sharpness: 45,
+    definition: 45,
+    saturation: 170,
     textColor: "#f4f4f0",
     backgroundColor: "#111111",
     invert: false,
@@ -195,11 +196,17 @@
       );
       const fontSize = Math.max(
         6,
-        Math.min(18, Number(settings.fontSize) || 9),
+        Math.min(48, Number(settings.fontSize) || 9),
       );
       const columns = Math.min(
         600,
-        Math.max(requestedColumns, Math.ceil(bounds.width / (fontSize * 0.62))),
+        Math.max(
+          20,
+          Math.min(
+            requestedColumns,
+            Math.ceil(bounds.width / (fontSize * 0.62)),
+          ),
+        ),
       );
       const cellWidth = bounds.width / columns;
       const cellHeight = fontSize * 1;
@@ -222,6 +229,11 @@
             rows,
             characters,
             settings,
+            glowThreshold:
+              Math.max(
+                50,
+                Math.min(100, Number(settings.glowThreshold) || 85),
+              ) / 100,
             scattering: now < scatterUntil,
             scatterStrength:
               now < scatterUntil ? (scatterUntil - now) / 550 : 0,
@@ -345,14 +357,36 @@
             Math.min(1, center + edge * (sharpness + definition * 0.35)),
           );
           if (settings.invert) brightness = 1 - brightness;
-          const characterIndex = Math.min(
+          const threshold =
+            Math.max(50, Math.min(98, Number(settings.glowThreshold) || 85)) /
+            100;
+          const glowAmount = Math.max(
+            0,
+            Math.min(1, (center - threshold) / (1 - threshold)),
+          );
+          const mappedCharacterIndex = Math.min(
             usableCharacters.length - 1,
             Math.floor(brightness * usableCharacters.length),
           );
+          const characterIndex =
+            glowAmount > 0.05
+              ? Math.min(
+                  mappedCharacterIndex,
+                  Math.floor(
+                    (1 - glowAmount * 0.7) * (usableCharacters.length - 1),
+                  ),
+                )
+              : mappedCharacterIndex;
           const character = usableCharacters[characterIndex];
-          const color = colored
+          const baseColor = colored
             ? `rgb(${adjustedColors[colorIndex]}, ${adjustedColors[colorIndex + 1]}, ${adjustedColors[colorIndex + 2]})`
             : settings.textColor;
+          const color =
+            glowAmount > 0.05
+              ? colored
+                ? "#ffffff"
+                : settings.textColor
+              : baseColor;
           const cellKey = `${character ?? " "}\0${color}`;
           if (!scattering && renderedCells[pixelIndex] === cellKey) continue;
 
@@ -367,6 +401,10 @@
             ? (Math.random() - 0.5) * 12 * scatterStrength
             : 0;
           if (character && character !== " ") {
+            if (glowAmount > 0.05) {
+              outputContext.shadowColor = color;
+              outputContext.shadowBlur = glowAmount * fontSize * 1.5;
+            }
             outputContext.fillStyle = color;
             outputContext.fillText(
               character,
@@ -374,6 +412,8 @@
               y + scatterY,
               cellWidth,
             );
+            outputContext.shadowBlur = 0;
+            outputContext.shadowColor = "transparent";
           }
           renderedCells[pixelIndex] = scattering ? null : cellKey;
         }
