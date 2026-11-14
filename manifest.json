@@ -3,7 +3,7 @@
   "name": "YouTube ASCII",
   "version": "1.0.0",
   "description": "Turn YouTube playback into a live ASCII video overlay.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "downloads"],
   "host_permissions": ["https://www.youtube.com/*"],
   "action": {
     "default_title": "YouTube ASCII",

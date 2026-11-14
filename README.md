@@ -23,7 +23,7 @@ video-ascii-art/
 4. Open or reload a YouTube video page.
 5. Select the extension toolbar icon and press **Enable ASCII**.
 
-The popup saves settings locally. Choose a preset or enter a custom character ramp in dark-to-light order. Resolution controls the number of character columns. The status line reports whether WebGL2 GPU or 2D CPU rendering is active. Clicking the page triggers a brief scatter effect.
+The popup saves settings locally. Choose a preset or enter a custom character ramp in dark-to-light order. Resolution controls the number of character columns. Use the frame navigator to scrub or step around the paused video (steps approximate 1/30 second). Black and white balance adjust the shadow and highlight points. The status line reports whether WebGL2 GPU or 2D CPU rendering is active. Clicking the page triggers a brief scatter effect. **Export 4K PNG** captures the current video frame, renders the ASCII image at 3840x2160, and opens the browser's Save As dialog.
 
 ## Notes
 

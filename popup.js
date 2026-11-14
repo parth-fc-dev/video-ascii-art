@@ -11,6 +11,8 @@
     glowAmount: 100,
     glowSize: 45,
     contrast: 100,
+    blackLevel: 0,
+    whiteLevel: 100,
     sharpness: 25,
     definition: 20,
     saturation: 100,
@@ -35,6 +37,8 @@
     "glowAmount",
     "glowSize",
     "contrast",
+    "blackLevel",
+    "whiteLevel",
     "sharpness",
     "definition",
     "saturation",
@@ -44,6 +48,11 @@
   ];
   const toggleButton = document.querySelector("#toggle");
   const toggleLabel = document.querySelector("#toggle-label");
+  const exportButton = document.querySelector("#export-frame");
+  const timeline = document.querySelector("#timeline");
+  const frameTime = document.querySelector("#frame-time");
+  const frameBack = document.querySelector("#frame-back");
+  const frameForward = document.querySelector("#frame-forward");
   const status = document.querySelector("#status");
   const characterInput = document.querySelector("#characters");
   let activeTabId = null;
@@ -85,6 +94,8 @@
       glowAmount: Number(document.querySelector("#glowAmount").value),
       glowSize: Number(document.querySelector("#glowSize").value),
       contrast: Number(document.querySelector("#contrast").value),
+      blackLevel: Number(document.querySelector("#blackLevel").value),
+      whiteLevel: Number(document.querySelector("#whiteLevel").value),
       sharpness: Number(document.querySelector("#sharpness").value),
       definition: Number(document.querySelector("#definition").value),
       saturation: Number(document.querySelector("#saturation").value),
@@ -120,6 +131,28 @@
     const tab = await getActiveTab();
     activeTabId = tab.id;
     return api.tabs.sendMessage(tab.id, message);
+  }
+
+  function formatTime(seconds) {
+    const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+    const minutes = Math.floor(safeSeconds / 60);
+    const remaining = String(safeSeconds % 60).padStart(2, "0");
+    return `${minutes}:${remaining}`;
+  }
+
+  function updateNavigator(state) {
+    const duration = Number(state.duration) || 0;
+    const currentTime = Number(state.currentTime) || 0;
+    const hasDuration = duration > 0 && Number.isFinite(duration);
+    timeline.disabled = !hasDuration;
+    frameBack.disabled = !hasDuration;
+    frameForward.disabled = !hasDuration;
+    if (document.activeElement !== timeline) {
+      timeline.value = hasDuration
+        ? String(Math.round((currentTime / duration) * 1000))
+        : "0";
+    }
+    frameTime.value = `${formatTime(currentTime)} / ${formatTime(duration)}`;
   }
 
   async function saveSettings() {
@@ -192,6 +225,61 @@
     }
   });
 
+  async function navigateFrame(message) {
+    try {
+      const state = await sendToTab(message);
+      if (state.error) throw new Error(state.error);
+      updateNavigator(state);
+      if (message.type === "ASCII_STEP_FRAME")
+        showStatus("Video paused at selected frame.");
+    } catch (error) {
+      showStatus(error.message || "Could not navigate the video.", true);
+    }
+  }
+
+  frameBack.addEventListener("click", () => {
+    navigateFrame({ type: "ASCII_STEP_FRAME", direction: -1 });
+  });
+  frameForward.addEventListener("click", () => {
+    navigateFrame({ type: "ASCII_STEP_FRAME", direction: 1 });
+  });
+  timeline.addEventListener("input", () => {
+    const ratio = Number(timeline.value) / 1000;
+    const duration = Number(timeline.dataset.duration) || 0;
+    if (duration > 0) {
+      navigateFrame({ type: "ASCII_SEEK", time: ratio * duration });
+    }
+  });
+
+  exportButton.addEventListener("click", async () => {
+    exportButton.disabled = true;
+    showStatus("Rendering 4K PNG from the current frame...");
+    try {
+      const settings = readSettings();
+      await api.storage.local.set(settings);
+      const tab = await getActiveTab();
+      await api.tabs.sendMessage(tab.id, { type: "ASCII_SETTINGS", settings });
+      const result = await api.tabs.sendMessage(tab.id, {
+        type: "ASCII_EXPORT_FRAME",
+      });
+      if (result?.error) throw new Error(result.error);
+      if (!result?.dataUrl?.startsWith("data:image/png;base64,")) {
+        throw new Error("The frame export did not return a PNG image.");
+      }
+      const downloadId = await api.downloads.download({
+        url: result.dataUrl,
+        filename: "youtube-ascii-4k.png",
+        saveAs: true,
+        conflictAction: "uniquify",
+      });
+      showStatus(`Save dialog opened for 4K PNG (download ${downloadId}).`);
+    } catch (error) {
+      showStatus(error.message || "Could not export this frame.", true);
+    } finally {
+      exportButton.disabled = false;
+    }
+  });
+
   api.runtime.onMessage.addListener((message) => {
     if (message?.type === "ASCII_STATUS") showStatus(message.error, true);
   });
@@ -202,6 +290,9 @@
     try {
       const state = await sendToTab({ type: "ASCII_STATE" });
       setMode(state.enabled);
+      exportButton.disabled = false;
+      timeline.dataset.duration = String(state.duration || 0);
+      updateNavigator(state);
       if (state.error) showStatus(state.error, true);
       else
         showStatus(
@@ -214,4 +305,16 @@
       showStatus("Open or reload a YouTube video page to begin.");
     }
   })().catch(() => showStatus("Could not load saved settings.", true));
+
+  window.setInterval(async () => {
+    try {
+      const state = await sendToTab({ type: "ASCII_STATE" });
+      timeline.dataset.duration = String(state.duration || 0);
+      updateNavigator(state);
+    } catch {
+      timeline.disabled = true;
+      frameBack.disabled = true;
+      frameForward.disabled = true;
+    }
+  }, 400);
 })();

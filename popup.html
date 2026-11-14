@@ -20,6 +20,42 @@
         <span class="toggle-indicator" aria-hidden="true"></span>
         <span id="toggle-label">Enable ASCII</span>
       </button>
+      <button id="export-frame" class="export-button" type="button" disabled>
+        <span aria-hidden="true">&#8595;</span>
+        <span>Export 4K PNG</span>
+      </button>
+      <section class="frame-navigator" aria-label="Video frame navigator">
+        <div class="frame-controls">
+          <button
+            id="frame-back"
+            type="button"
+            aria-label="Previous frame"
+            title="Previous frame"
+            disabled
+          >
+            &#9664;|
+          </button>
+          <input
+            id="timeline"
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            disabled
+            aria-label="Video position"
+          />
+          <button
+            id="frame-forward"
+            type="button"
+            aria-label="Next frame"
+            title="Next frame"
+            disabled
+          >
+            |&#9654;
+          </button>
+        </div>
+        <output id="frame-time">0:00 / 0:00</output>
+      </section>
       <p id="status" class="status" role="status">
         Open a YouTube video to begin.
       </p>
@@ -110,6 +146,26 @@
           ></label>
           <input id="contrast" type="range" min="0" max="200" step="5" />
           <div class="range-ends"><span>Soft</span><span>Strong</span></div>
+        </div>
+
+        <div class="range-field">
+          <label for="blackLevel"
+            >Black balance <output id="blackLevel-value"></output
+          ></label>
+          <input id="blackLevel" type="range" min="0" max="40" step="1" />
+          <div class="range-ends">
+            <span>Open shadows</span><span>Deeper blacks</span>
+          </div>
+        </div>
+
+        <div class="range-field">
+          <label for="whiteLevel"
+            >White balance <output id="whiteLevel-value"></output
+          ></label>
+          <input id="whiteLevel" type="range" min="60" max="100" step="1" />
+          <div class="range-ends">
+            <span>Clip highlights</span><span>Preserve whites</span>
+          </div>
         </div>
 
         <div class="range-field">

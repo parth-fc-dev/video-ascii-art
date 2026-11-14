@@ -15,6 +15,8 @@
     uniform float u_charCount;
     uniform float u_contrast;
     uniform float u_saturation;
+    uniform float u_blackLevel;
+    uniform float u_whiteLevel;
     uniform float u_sharpness;
     uniform float u_definition;
     uniform float u_glowThreshold;
@@ -32,7 +34,8 @@
     vec3 adjustedColor(vec3 color) {
       float gray = dot(color, vec3(0.2126, 0.7152, 0.0722));
       vec3 saturated = vec3(gray) + (color - vec3(gray)) * u_saturation;
-      return clamp(saturated * u_contrast + vec3(0.5 * (1.0 - u_contrast)), 0.0, 1.0);
+      vec3 contrasted = clamp(saturated * u_contrast + vec3(0.5 * (1.0 - u_contrast)), 0.0, 1.0);
+      return clamp((contrasted - vec3(u_blackLevel)) / max(u_whiteLevel - u_blackLevel, 0.01), 0.0, 1.0);
     }
 
     float luminanceAt(vec2 uv) {
@@ -189,6 +192,8 @@
       "u_charCount",
       "u_contrast",
       "u_saturation",
+      "u_blackLevel",
+      "u_whiteLevel",
       "u_sharpness",
       "u_definition",
       "u_glowThreshold",
@@ -305,6 +310,14 @@
       gl.uniform1f(
         uniforms.u_saturation,
         Math.max(0, Math.min(200, Number(settings.saturation) || 100)) / 100,
+      );
+      gl.uniform1f(
+        uniforms.u_blackLevel,
+        Math.max(0, Math.min(40, Number(settings.blackLevel) || 0)) / 100,
+      );
+      gl.uniform1f(
+        uniforms.u_whiteLevel,
+        Math.max(60, Math.min(100, Number(settings.whiteLevel) || 100)) / 100,
       );
       gl.uniform1f(
         uniforms.u_sharpness,
