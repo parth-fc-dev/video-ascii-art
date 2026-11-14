@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube ASCII</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="topline">
+        <div>
+          <p class="eyebrow">LIVE VIDEO TRANSFORM</p>
+          <h1>YouTube ASCII</h1>
+        </div>
+        <span class="mark" aria-hidden="true">#</span>
+      </header>
+
+      <button id="toggle" class="toggle" type="button" aria-pressed="false">
+        <span class="toggle-indicator" aria-hidden="true"></span>
+        <span id="toggle-label">Enable ASCII</span>
+      </button>
+      <p id="status" class="status" role="status">
+        Open a YouTube video to begin.
+      </p>
+
+      <section class="settings" aria-labelledby="settings-title">
+        <div class="section-heading">
+          <h2 id="settings-title">Render settings</h2>
+          <span>LIVE</span>
+        </div>
+
+        <label class="field">
+          <span>Art style</span>
+          <select id="preset">
+            <option value="classic">Classic monochrome</option>
+            <option value="colored">Colored ASCII</option>
+            <option value="minimal">Minimal dots</option>
+            <option value="custom">Custom character set</option>
+          </select>
+        </label>
+
+        <label class="field" for="characters">
+          <span>Character ramp <small>dark to light</small></span>
+          <textarea
+            id="characters"
+            rows="2"
+            spellcheck="false"
+            aria-label="ASCII character set, ordered from dark to light"
+          ></textarea>
+        </label>
+
+        <div class="range-field">
+          <label for="resolution"
+            >Resolution <output id="resolution-value"></output
+          ></label>
+          <input id="resolution" type="range" min="40" max="600" step="10" />
+          <div class="range-ends">
+            <span>Fewer</span><span>More detail</span>
+          </div>
+        </div>
+
+        <div class="range-field">
+          <label for="frameRate"
+            >Frame rate <output id="frameRate-value"></output
+          ></label>
+          <input id="frameRate" type="range" min="10" max="60" step="1" />
+          <div class="range-ends">
+            <span>Smoother CPU</span><span>Smoother motion</span>
+          </div>
+        </div>
+
+        <div class="range-field">
+          <label for="fontSize"
+            >Character size <output id="fontSize-value"></output
+          ></label>
+          <input id="fontSize" type="range" min="6" max="16" step="1" />
+          <div class="range-ends"><span>Compact</span><span>Larger</span></div>
+        </div>
+
+        <div class="range-field">
+          <label for="contrast"
+            >Contrast <output id="contrast-value"></output
+          ></label>
+          <input id="contrast" type="range" min="0" max="200" step="5" />
+          <div class="range-ends"><span>Soft</span><span>Strong</span></div>
+        </div>
+
+        <div class="range-field">
+          <label for="sharpness"
+            >Sharpness <output id="sharpness-value"></output
+          ></label>
+          <input id="sharpness" type="range" min="0" max="100" step="5" />
+          <div class="range-ends"><span>Soft</span><span>Crisp</span></div>
+        </div>
+
+        <div class="range-field">
+          <label for="definition"
+            >Definition <output id="definition-value"></output
+          ></label>
+          <input id="definition" type="range" min="0" max="100" step="5" />
+          <div class="range-ends">
+            <span>Natural</span><span>Detailed</span>
+          </div>
+        </div>
+
+        <div class="range-field">
+          <label for="saturation"
+            >Saturation <output id="saturation-value"></output
+          ></label>
+          <input id="saturation" type="range" min="0" max="200" step="5" />
+          <div class="range-ends"><span>Muted</span><span>Vivid</span></div>
+        </div>
+
+        <div class="color-row">
+          <label class="color-field" for="textColor">
+            <span>Text color</span>
+            <input id="textColor" type="color" />
+          </label>
+          <label class="color-field" for="backgroundColor">
+            <span>Background</span>
+            <input id="backgroundColor" type="color" />
+          </label>
+        </div>
+
+        <label class="invert-row" for="invert">
+          <span
+            ><strong>Invert brightness</strong
+            ><small>Swap dark and light mapping</small></span
+          >
+          <input id="invert" type="checkbox" />
+        </label>
+      </section>
+      <footer>Click the video to scatter characters.</footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
